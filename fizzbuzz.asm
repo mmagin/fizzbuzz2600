@@ -13,6 +13,7 @@ FrameCount = $90
 Count = $91
 Div3 = $92
 Div5 = $93
+Temp = $94
 
 Start
 	CLEAN_START
@@ -215,7 +216,7 @@ DrawScreen
 ; into an incremental loop, change the number to 255-191 (65) and change
 ; the DEY at the end ot the scanning loop to INY.
 ;
-	LDY #191 
+	ldy #191
 ;
 ; Okay, now THIS is scary.  I decided to put the bulk of my comments
 ; BEFORE the code, rather than inside it, so that you can look at the
@@ -279,24 +280,41 @@ ScanLoop
 	STA WSYNC
 
 	tya
-	lsr
-	lsr
-	cmp #$18
+	cmp #$60
 	bmi NoPrint
-	cmp #$20
+	cmp #$80
 	bpl NoPrint
 
-	and #$07
+	
+	;;  we want to load PF1 with the contents of Digits + Count*8 + (8 - (Y>>2) % 7)
+	lsr
+	lsr
+	and #7
+	sta Temp
+	lda #8
+	clc
+	sbc Temp
+	sta Temp
+	
+	lda Count
+	asl
+	asl
+	asl
+
+	adc Temp
+	
 	tax
 
 	lda Digits,X
 	sta PF1
+
 	DEY
 	BNE ScanLoop
 
 NoPrint
 	lda $0
 	sta PF1
+
 	DEY
 	BNE ScanLoop
 
@@ -402,6 +420,7 @@ Silent
 ;
 
 Digits
+	;; 0
 	.byte %00111100
 	.byte %01100110
 	.byte %01000010
@@ -410,7 +429,89 @@ Digits
 	.byte %01000010
 	.byte %01100110
  	.byte %00111100
-	
+	;; 1
+	.byte %00110000
+	.byte %01110000
+	.byte %00010000
+	.byte %00010000
+	.byte %00010000
+	.byte %00010000
+	.byte %01111100
+	.byte %00000000
+	;; 2
+	.byte %00111000
+	.byte %00000100
+	.byte %00001100
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %01111110
+	.byte %00000000
+	;; 3
+	.byte %00111000
+	.byte %01000100
+	.byte %00000100
+	.byte %00011000
+	.byte %00000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 4
+	.byte %00001000
+	.byte %00011000
+	.byte %00101000
+	.byte %01001000
+	.byte %11111110
+	.byte %00001000
+	.byte %00001000
+	.byte %00000000
+	;; 5
+	.byte %01111000
+	.byte %01000000
+	.byte %01000000
+	.byte %00111000
+	.byte %00000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 6
+	.byte %00111000
+	.byte %01000000
+	.byte %01000000
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 7
+	.byte %11111110
+	.byte %00000100
+	.byte %00001000
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %10000000
+	.byte %00000000
+	;; 8
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 9
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000100
+	.byte %00000100
+	.byte %00111000
+	.byte %00000000
+
+
 	org $FFFC
 	.word Start
 	.word Start
