@@ -1,67 +1,22 @@
-;
+; FizzBuzz for the 2600, heavily modified from:
+
 ; How to Draw A Playfield.
 ; by Nick Bensema  9:23PM  3/2/97
-;
-; Atari 2600 programming is different from any other kind of programming
-; in many ways.  Just one of these ways is the flow of the program.
-;
-; Since the CPU must hold tha TIA's hand through all graphical operations,
-; the flow ought to go like this:
-;
-; Clear memory and registers
-; Set up variables
-; Loop:
-;    Do the vertical blank
-;    Do game calculations
-;    Draw screen
-;    Do more calculations during overscan
-;    Wait for next vertical blank
-; End Loop.
-;    
-; What I will do is create an outline, and explain everything I can.
-; This program will display "HELLO" and scroll it down the screen.
-;
-; In writing this program, I will take the opportunity to show you
-; how a few simple modifications can completely change a program's
-; appearance or behavior.  I will invite you to comment out a few
-; lines of code, and alter others, so that you can observe the results.
-; 
-; I will be using DASM for now.  Conversion to A65 should be trivial.
-;
+
+
 	processor 6502
 	include vcs.h
-
+	include macro.h
 	org $F000
        
-Temp       = $80
-PlayfieldY = $90
+FrameCount = $90
+Count = $91
+Div3 = $92
+Div5 = $93
 
 Start
-;
-; The 2600 powers up in a completely random state, except for the PC which
-; is set to the location at $FFC.  Therefore the first thing we must do is
-; to set everything up inside the 6502.
-;
-	SEI  ; Disable interrupts, if there are any.
-	CLD  ; Clear BCD math bit.
-;
-; You may feel the need to use the stack, in which case:
-;
-	LDX  #$FF
-	TXS  ; Set stack to beginning.
-;
-; Now the memory and TIA registers must be cleared.  You may feel the
-; need to write a subroutine that only clears out a certain section of
-; memory, but for now a simple loop will suffice.
-;
-; Since X is already loaded to 0xFF, our task becomes simply to ocunt
-; everything off.
-;
-	LDA #0
-B1      STA 0,X
-	DEX
-	BNE B1
-;
+	CLEAN_START
+				;
 ; The above routine does not clear location 0, which is VSYNC.  We will
 ; take care of that later.
 ;
@@ -151,16 +106,60 @@ VerticalBlank
 ; the B&W switch!  HA!
 ;
 CheckSwitches
-       LDA #0
-       STA COLUBK  ; Background will be black.
-       RTS
+	LDA #0
+	STA COLUBK  ; Background will be black.
+	lda #$6e
+	sta COLUPF
+	sta COLUP0
+	sta COLUP1
+	RTS
 ;
 ; Minimal game calculations, just to get the ball rolling.
 ;
 GameCalc
-	INC PlayfieldY   ;Inch up the playfield
-	RTS
+	LDA FrameCount
+	ADC #4
+	STA FrameCount
+	;; every 64 frames, count
+	
+	beq GCCount
 
+	rts
+
+GCCount
+	inc Count
+
+
+	inc Div3
+	lda #3
+	cmp Div3
+	bne Not3
+	lda #0
+	sta Div3
+	jsr Silent
+	jsr Fizz
+Not3
+
+	inc Div5
+	lda #5
+	cmp Div5
+	bne Not5
+	lda #0
+	sta Div5
+	jsr Silent
+	jsr Buzz
+Not5
+
+	lda #0
+	cmp Div5
+	beq GCDone
+	cmp Div3
+	beq GCDone
+	jsr Silent
+GCDone
+	rts
+
+	;; all of those rts themselves
 ;
 ; This is the scariest thing I've done all month.
 ;
@@ -274,32 +273,33 @@ DrawScreen
 ; a lot of cycles left over.  The maximum, if you recall, is 73 if you
 ; plan to use STA WSYNC, and I pity the fool who doesn't.
 
+
 ScanLoop
-; Result of the following math is:
-;  X = ( (Y-PlayfieldY) /4 ) mod 7  
-	TYA
-	SEC                     
-	SBC PlayfieldY
-	LSR   ;Divide by 4
-	LSR
-	AND #7  ;modulo 8
-	TAX
-	LDA PFData0,X           ;Load ahead of time.
-; WSYNC is placed BEFORE all of this action takes place.
+
 	STA WSYNC
-	STA PF0                 ;[0] +3 = *3*   < 23
-	LDA PFLColor,X          ;[3] +4
-	;In a real game, I wouldn't be this redundant.
-	STA COLUP0              ;[7] +3 = *10*  < 23
-	STA COLUPF              ;[10]+3 = *13*  < 23
-	LDA PFData1,X           ;[13]+4
-	STA PF1                 ;[17]+3 = *20*  < 29
-	LDA PFRColor,X          ;[20]+4
-	STA COLUP1              ;[24]+3 = *27*  < 49
-	LDA PFData2,X           ;[27]+4
-	STA PF2                 ;[31]+3 = *34*  < 40
+
+	tya
+	lsr
+	lsr
+	cmp #$18
+	bmi NoPrint
+	cmp #$20
+	bpl NoPrint
+
+	and #$07
+	tax
+
+	lda Digits,X
+	sta PF1
 	DEY
 	BNE ScanLoop
+
+NoPrint
+	lda $0
+	sta PF1
+	DEY
+	BNE ScanLoop
+
 ;
 ; Clear all registers here to prevent any possible bleeding.
 ;
@@ -338,9 +338,37 @@ KillLines
 ;
 GameInit
 	LDA #0
-	STA PlayfieldY
+	STA FrameCount
+	STA Count
 	RTS
 
+
+; Routines to set our fizz or buzz sound
+	
+Fizz
+	lda #$03
+	sta AUDV0
+	lda #$08
+	sta AUDC0
+	lda #$1f
+	sta AUDF0
+	rts
+
+Buzz
+	lda #$04
+	sta AUDV1
+	lda #$06
+	sta AUDC1
+	lda #$10
+	sta AUDF1
+	rts
+
+Silent
+	lda #$0
+	sta AUDV0
+	sta AUDV1
+	rts
+	
 ;
 ; Graphics are placed so that the extra cycle in the PFData,X indexes
 ; is NEVER taken, by making sure it never has to index across a page
@@ -372,17 +400,17 @@ GameInit
 ; It will become necessary to write a program that makes this easier,
 ; because it is easy to become confused when dealing with this system.
 ;
-PFData0  ;H       4 5 6 7
-       .byte $00,$f0,$00,$A0,$A0,$E0,$A0,$A0
-PFData1  ;EL      7 6 5 4 3 2 1 0
-       .byte $00,$FF,$00,$77,$44,$64,$44,$74
-PFData2  ;LO      0 1 2 3 4 5 6 7
-       .byte $00,$FF,$00,$EE,$A2,$A2,$A2,$E2
-PFLColor ; Left side of screen
-       .byte $00,$FF,$00,$22,$26,$2A,$2C,$2E
-PFRColor ; Right side of screen
-       .byte $00,$1F,$00,$6E,$6C,$6A,$66,$62
- 
+
+Digits
+	.byte %00111100
+	.byte %01100110
+	.byte %01000010
+	.byte %01000010
+	.byte %01000010
+	.byte %01000010
+	.byte %01100110
+ 	.byte %00111100
+	
 	org $FFFC
 	.word Start
 	.word Start
