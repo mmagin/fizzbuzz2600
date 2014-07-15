@@ -9,12 +9,12 @@
 	include macro.h
 	org $F000
        
-FrameCount = $90
-Count = $91
-Div3 = $92
-Div5 = $93
-Temp = $94
-TensDigit = $95
+FrameCount = $80
+Count = $81
+Div3 = $82
+Div5 = $83
+Temp = $84
+TensDigit = $85
 
 Start
 	CLEAN_START
@@ -110,7 +110,7 @@ VerticalBlank
 CheckSwitches
 	LDA #0
 	STA COLUBK  ; Background will be black.
-	lda #$6e
+	lda #$0f
 	sta COLUPF
 	RTS
 ;
@@ -430,9 +430,9 @@ Digits1
 	.byte %01000010
 	.byte %01000010
 	.byte %01000010
-	.byte %01000010
 	.byte %01100110
  	.byte %00111100
+	.byte %00000000
 	;; 1
 	.byte %00110000
 	.byte %01110000
@@ -522,12 +522,12 @@ Digits2
 	.byte %01000010
 	.byte %01000010
 	.byte %01000010
-	.byte %01000010
 	.byte %01100110
  	.byte %00111100
+	.byte %00000000
 	;; 1
-	.byte %00110000
-	.byte %01110000
+	.byte %00011000
+	.byte %00011100
 	.byte %00010000
 	.byte %00010000
 	.byte %00010000
@@ -536,44 +536,44 @@ Digits2
 	.byte %00000000
 	;; 2
 	.byte %00111000
-	.byte %00000100
-	.byte %00001100
+	.byte %01000100
+	.byte %01100000
 	.byte %00010000
-	.byte %00100000
-	.byte %01000000
+	.byte %00001000
+	.byte %00000100
 	.byte %01111110
 	.byte %00000000
 	;; 3
 	.byte %00111000
 	.byte %01000100
-	.byte %00000100
-	.byte %00011000
-	.byte %00000100
+	.byte %01000100
+	.byte %01110000
+	.byte %01000100
 	.byte %01000100
 	.byte %00111000
 	.byte %00000000
 	;; 4
-	.byte %00001000
-	.byte %00011000
+	.byte %00100000
+	.byte %00110000
 	.byte %00101000
-	.byte %01001000
+	.byte %00100100
 	.byte %11111110
-	.byte %00001000
-	.byte %00001000
+	.byte %00100000
+	.byte %00100000
 	.byte %00000000
 	;; 5
-	.byte %01111000
-	.byte %01000000
-	.byte %01000000
-	.byte %00111000
+	.byte %01111100
 	.byte %00000100
+	.byte %00000100
+	.byte %00111000
+	.byte %01000000
 	.byte %01000100
 	.byte %00111000
 	.byte %00000000
 	;; 6
 	.byte %00111000
-	.byte %01000000
-	.byte %01000000
+	.byte %00000100
+	.byte %00000100
 	.byte %00111000
 	.byte %01000100
 	.byte %01000100
@@ -581,12 +581,12 @@ Digits2
 	.byte %00000000
 	;; 7
 	.byte %11111110
-	.byte %00000100
-	.byte %00001000
-	.byte %00010000
-	.byte %00100000
 	.byte %01000000
-	.byte %10000000
+	.byte %00100000
+	.byte %00010000
+	.byte %00001000
+	.byte %00000100
+	.byte %00000010
 	.byte %00000000
 	;; 8
 	.byte %00111000
@@ -602,8 +602,8 @@ Digits2
 	.byte %01000100
 	.byte %01000100
 	.byte %00111000
-	.byte %00000100
-	.byte %00000100
+	.byte %01000000
+	.byte %01000000
 	.byte %00111000
 	.byte %00000000
 
