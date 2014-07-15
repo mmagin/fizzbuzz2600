@@ -286,17 +286,52 @@ DrawScreen
 ; plan to use STA WSYNC, and I pity the fool who doesn't.
 
 
-ScanLoop
+ScanLoop SUBROUTINE
 
 	STA WSYNC
 
+	;; only print the 'score' at the top
 	tya
-	cmp #$60
-	bmi NoPrint
-	cmp #$80
-	bpl NoPrint
+	cmp #$A0
+	bmi .noprint
+	cmp #$BF
+	bpl .noprint
 
+	jsr PrintScore
+	dey
+	bne ScanLoop
 	
+.noprint
+	lda #0
+	sta PF0
+	sta PF1
+	sta PF2
+
+	DEY
+	BNE ScanLoop
+
+;
+; Clear all registers here to prevent any possible bleeding.
+;
+	LDA #2
+	STA WSYNC  ;Finish this scanline.
+	STA VBLANK ; Make TIA output invisible,
+	; Now we need to worry about it bleeding when we turn
+	; the TIA output back on.
+	; Y is still zero.
+	STY PF0
+	STY PF1
+	STY PF1
+	STY GRP0
+	STY GRP1
+	STY ENAM0
+	STY ENAM1
+	STY ENABL
+	RTS
+
+
+PrintScore SUBROUTINE
+	tya
 	;;  we want to load PF2 with the contents of Digit[12] + Count*8 + (8 - (Y>>2) % 7)
 
 	lsr
@@ -350,43 +385,14 @@ ScanLoop
 	asl
 	asl
 	sta PF0
-	dey
-	BNE ScanLoop
+	rts
 	
 .zerohundred
 	lda #0
 	sta PF0
 	
-	DEY
-	BNE ScanLoop
-
-NoPrint
-	lda #0
-	sta PF0
-	sta PF1
-	sta PF2
-
-	DEY
-	BNE ScanLoop
-
-;
-; Clear all registers here to prevent any possible bleeding.
-;
-	LDA #2
-	STA WSYNC  ;Finish this scanline.
-	STA VBLANK ; Make TIA output invisible,
-	; Now we need to worry about it bleeding when we turn
-	; the TIA output back on.
-	; Y is still zero.
-	STY PF0
-	STY PF1
-	STY PF1
-	STY GRP0
-	STY GRP1
-	STY ENAM0
-	STY ENAM1
-	STY ENABL
-	RTS
+	rts
+	
 
 ;
 ; For the Overscan routine, one might take the time to process such
