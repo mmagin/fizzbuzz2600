@@ -14,6 +14,7 @@ Count = $91
 Div3 = $92
 Div5 = $93
 Temp = $94
+TensDigit = $95
 
 Start
 	CLEAN_START
@@ -111,8 +112,6 @@ CheckSwitches
 	STA COLUBK  ; Background will be black.
 	lda #$6e
 	sta COLUPF
-	sta COLUP0
-	sta COLUP1
 	RTS
 ;
 ; Minimal game calculations, just to get the ball rolling.
@@ -129,7 +128,6 @@ GameCalc
 
 GCCount
 	inc Count
-
 
 	inc Div3
 	lda #3
@@ -169,38 +167,11 @@ DrawScreen
 	BNE DrawScreen ; Whew!
 	STA WSYNC
 	STA VBLANK  ;End the VBLANK period with a zero.
-;
-; Now we can do what we need to do.  What sort of playfield do
-; we want to show?  A doubled playfield will work better than
-; anything if we either want a side scroller (which involves some
-; tricky bit shifting, usually) or an asymmetrical playfield (which
-; we're not doing yet).  A mirrored playfield is usually best for
-; vertical scrollers.  With some creativity, you can use both in your
-; game.
-;
-; The "score" bit is useful for drawing scores with playfield graphics
-; as Combat and other early games do.  It can also create a neat effect
-; if you know how to be creative with it.  One useful application of
-; score mode would be always having player 1 on the left side, and
-; player 0 on the right side.  Each player would be surrounded in the
-; opposite color, and the ball graphic could be used to stand out
-; against either one.  On my 2600jr, color from the right side bleeds
-; about one pixel into the left side, so don't think it's perfect.
-; It's really far from perfect because PC Atari does not implement
-; it at all; both sides appear as Player 0's color.  A26 does, though.
-;
-; To accomodate this, my routine puts color values into
-; COLUP0 for the left side, and COLUP1 for the right side.  Change
-; the LDA operand to 0 or 1 to use the normal system.  The code in
-; the scanning loop accounts for both systems.
-;
-	LDA  #2
+
+; playfield	
+	LDA  #0
 	STA  CTRLPF
-;
-; Initialize some display variables.
-;
-	;There aren't any display variables!
-;
+
 ; I'm going to use the Y register to count scanlines this time.
 ; Realize that I am forfeiting the use of the Y register for this
 ; purpose, but DEC Zero Page takes five cycles as opposed to DEY's
@@ -286,7 +257,8 @@ ScanLoop
 	bpl NoPrint
 
 	
-	;;  we want to load PF1 with the contents of Digits + Count*8 + (8 - (Y>>2) % 7)
+	;;  we want to load PF2 with the contents of Digit[12] + Count*8 + (8 - (Y>>2) % 7)
+
 	lsr
 	lsr
 	and #7
@@ -296,7 +268,24 @@ ScanLoop
 	sbc Temp
 	sta Temp
 	
+	;; Count -> tens, ones
 	lda Count
+	ldx #0
+TensCount
+	clc
+	cmp #10
+	bmi TensDone
+	clc
+	sbc #10
+	inx
+	jmp TensCount
+TensDone
+	;; x is tens, a is ones
+	
+	stx TensDigit
+	
+	;;  display ones
+	and #$f
 	asl
 	asl
 	asl
@@ -305,15 +294,30 @@ ScanLoop
 	
 	tax
 
-	lda Digits,X
+	lda Digits2,X
+	sta PF2
+
+	;; display tens
+	lda TensDigit
+	asl
+	asl
+	asl
+
+	adc Temp
+	
+	tax
+
+	lda Digits1,X
 	sta PF1
 
+	
 	DEY
 	BNE ScanLoop
 
 NoPrint
-	lda $0
+	lda #0
 	sta PF1
+	sta PF2
 
 	DEY
 	BNE ScanLoop
@@ -393,7 +397,7 @@ Silent
 ; boundary.  This way our cycle count holds true.
 ;
 
-	org $FF00
+	org $FE00
 ;
 ; This is the tricky part of drawing a playfield: actually
 ; drawing it.  Well, the display routine and all that binary
@@ -419,7 +423,99 @@ Silent
 ; because it is easy to become confused when dealing with this system.
 ;
 
-Digits
+Digits1
+	;; 0
+	.byte %00111100
+	.byte %01100110
+	.byte %01000010
+	.byte %01000010
+	.byte %01000010
+	.byte %01000010
+	.byte %01100110
+ 	.byte %00111100
+	;; 1
+	.byte %00110000
+	.byte %01110000
+	.byte %00010000
+	.byte %00010000
+	.byte %00010000
+	.byte %00010000
+	.byte %01111100
+	.byte %00000000
+	;; 2
+	.byte %00111000
+	.byte %00000100
+	.byte %00001100
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %01111110
+	.byte %00000000
+	;; 3
+	.byte %00111000
+	.byte %01000100
+	.byte %00000100
+	.byte %00011000
+	.byte %00000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 4
+	.byte %00001000
+	.byte %00011000
+	.byte %00101000
+	.byte %01001000
+	.byte %11111110
+	.byte %00001000
+	.byte %00001000
+	.byte %00000000
+	;; 5
+	.byte %01111000
+	.byte %01000000
+	.byte %01000000
+	.byte %00111000
+	.byte %00000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 6
+	.byte %00111000
+	.byte %01000000
+	.byte %01000000
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 7
+	.byte %11111110
+	.byte %00000100
+	.byte %00001000
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %10000000
+	.byte %00000000
+	;; 8
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000000
+	;; 9
+	.byte %00111000
+	.byte %01000100
+	.byte %01000100
+	.byte %00111000
+	.byte %00000100
+	.byte %00000100
+	.byte %00111000
+	.byte %00000000
+
+Digits2
 	;; 0
 	.byte %00111100
 	.byte %01100110
