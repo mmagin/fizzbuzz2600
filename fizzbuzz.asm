@@ -7,6 +7,7 @@
 	processor 6502
 	include vcs.h
 	include macro.h
+	include mmagin.h
 	org $F000
        
 FrameCount = $80
@@ -114,52 +115,48 @@ CheckSwitches
 	lda #$0f
 	sta COLUP0
 	RTS
-;
+	
 ; Minimal game calculations, just to get the ball rolling.
 ;
-GameCalc
+GameCalc SUBROUTINE
 	LDA FrameCount
 	ADC #4
 	STA FrameCount
 	;; every 64 frames, count
-	beq IncCount
+	beq .IncCount
 	rts
 
-IncCount
-	jsr BumpCounts
-	
+.IncCount
+	jsr DecCounts
+	jsr ThreeCount
+	jsr FiveCount
+	jsr ChangeSounds
+	rts
+
+ThreeCount SUBROUTINE
 	inc Div3
 	lda #3
 	cmp Div3
-	bne Not3
+	beq .reset
+	rts
+.reset	
 	lda #0
 	sta Div3
-	jsr Silent
-	jsr Fizz
-Not3
+	rts
 
+FiveCount SUBROUTINE
 	inc Div5
 	lda #5
 	cmp Div5
-	bne Not5
+	beq .reset
+	rts
+.reset
 	lda #0
 	sta Div5
-	jsr Silent
-	jsr Buzz
-Not5
-
-	lda #0
-	cmp Div5
-	beq GCDone
-	cmp Div3
-	beq GCDone
-	jsr Silent
-GCDone
 	rts
-	
-	;; all of those rts themselves
 
-BumpCounts SUBROUTINE
+
+DecCounts SUBROUTINE
 	lda OnesDigit
 	cmp #9
 	beq .inctens
@@ -187,6 +184,21 @@ BumpCounts SUBROUTINE
 	lda #0
 	sta HundredsDigit
 	rts
+
+ChangeSounds SUBROUTINE
+	SILENT
+	lda Div3
+	cmp #0
+	bne .1
+	SOUND 0,#$1f,#$08,#$01
+.1
+	lda Div5
+	cmp #0
+	bne .2
+	SOUND 1,#$10,#$06,#$02
+.2
+	rts
+	
 ;
 ; This is the scariest thing I've done all month.
 ;
@@ -402,249 +414,11 @@ GameInit
 	RTS
 
 
-; Routines to set our fizz or buzz sound
+
 	
-Fizz
-	lda #$01
-	sta AUDV0
-	lda #$08
-	sta AUDC0
-	lda #$1f
-	sta AUDF0
-	rts
-
-Buzz
-	lda #$01
-	sta AUDV1
-	lda #$0f
-	sta AUDC1
-	lda #$10
-	sta AUDF1
-	rts
-
-Silent
-	lda #$0
-	sta AUDV0
-	sta AUDV1
-	rts
-	
-;
-; Graphics are placed so that the extra cycle in the PFData,X indexes
-; is NEVER taken, by making sure it never has to index across a page
-; boundary.  This way our cycle count holds true.
-;
-
-	org $FE00
-;
-; This is the tricky part of drawing a playfield: actually
-; drawing it.  Well, the display routine and all that binary
-; math was a bit tricky, too, but still, listen up.
-;
-; Playfield data isn't stored the way most bitmaps are, even
-; one-dimensional bitmaps.  We will use the left side of the
-; screen only, knowing that the right side is either repeated
-; or reflected from it.
-;
-; In PF0 and PF2, the most significant bit (bit 7) is on the RIGHT
-; side.  In PF1, the most significant bit is on the LEFT side.  This
-; means that relative to PF0 and PF2, PF1 has a reversed bit order.
-; It's just really weird.
-;
-;    PF0  |     PF1       |      PF2
-;  4 5 6 7|7 6 5 4 3 2 1 0|0 1 2 3 4 5 6 7
-;
-; This is important to remember when doing calculations on bytes intended
-; for the PF registers.  Defender gives a good example of this.
-;
-; It will become necessary to write a program that makes this easier,
-; because it is easy to become confused when dealing with this system.
-;
-
-Digits1
-	;; 0
-	.byte %00111100
-	.byte %01100110
-	.byte %01000010
-	.byte %01000010
-	.byte %01000010
-	.byte %01100110
- 	.byte %00111100
-	.byte %00000000
-	;; 1
-	.byte %00110000
-	.byte %01110000
-	.byte %00010000
-	.byte %00010000
-	.byte %00010000
-	.byte %00010000
-	.byte %01111100
-	.byte %00000000
-	;; 2
-	.byte %00111000
-	.byte %00000100
-	.byte %00001100
-	.byte %00010000
-	.byte %00100000
-	.byte %01000000
-	.byte %01111110
-	.byte %00000000
-	;; 3
-	.byte %00111000
-	.byte %01000100
-	.byte %00000100
-	.byte %00011000
-	.byte %00000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 4
-	.byte %00001000
-	.byte %00011000
-	.byte %00101000
-	.byte %01001000
-	.byte %11111110
-	.byte %00001000
-	.byte %00001000
-	.byte %00000000
-	;; 5
-	.byte %01111000
-	.byte %01000000
-	.byte %01000000
-	.byte %00111000
-	.byte %00000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 6
-	.byte %00111000
-	.byte %01000000
-	.byte %01000000
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 7
-	.byte %11111110
-	.byte %00000100
-	.byte %00001000
-	.byte %00010000
-	.byte %00100000
-	.byte %01000000
-	.byte %10000000
-	.byte %00000000
-	;; 8
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 9
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000100
-	.byte %00000100
-	.byte %00111000
-	.byte %00000000
-
-Digits2
-	;; 0
-	.byte %00111100
-	.byte %01100110
-	.byte %01000010
-	.byte %01000010
-	.byte %01000010
-	.byte %01100110
- 	.byte %00111100
-	.byte %00000000
-	;; 1
-	.byte %00011000
-	.byte %00011100
-	.byte %00010000
-	.byte %00010000
-	.byte %00010000
-	.byte %00010000
-	.byte %01111100
-	.byte %00000000
-	;; 2
-	.byte %00111000
-	.byte %01000100
-	.byte %01100000
-	.byte %00010000
-	.byte %00001000
-	.byte %00000100
-	.byte %01111110
-	.byte %00000000
-	;; 3
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %01110000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 4
-	.byte %00100000
-	.byte %00110000
-	.byte %00101000
-	.byte %00100100
-	.byte %11111110
-	.byte %00100000
-	.byte %00100000
-	.byte %00000000
-	;; 5
-	.byte %01111100
-	.byte %00000100
-	.byte %00000100
-	.byte %00111000
-	.byte %01000000
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 6
-	.byte %00111000
-	.byte %00000100
-	.byte %00000100
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 7
-	.byte %11111110
-	.byte %01000000
-	.byte %00100000
-	.byte %00010000
-	.byte %00001000
-	.byte %00000100
-	.byte %00000010
-	.byte %00000000
-	;; 8
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %00000000
-	;; 9
-	.byte %00111000
-	.byte %01000100
-	.byte %01000100
-	.byte %00111000
-	.byte %01000000
-	.byte %01000000
-	.byte %00111000
-	.byte %00000000
-
+	include digits.h	; Font
 
 	org $FFFC
 	.word Start
 	.word Start
+
