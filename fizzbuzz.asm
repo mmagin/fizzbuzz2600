@@ -405,7 +405,7 @@ GameInit
 ; Routines to set our fizz or buzz sound
 	
 Fizz
-	lda #$03
+	lda #$01
 	sta AUDV0
 	lda #$08
 	sta AUDC0
@@ -414,9 +414,9 @@ Fizz
 	rts
 
 Buzz
-	lda #$04
+	lda #$01
 	sta AUDV1
-	lda #$06
+	lda #$0f
 	sta AUDC1
 	lda #$10
 	sta AUDF1
