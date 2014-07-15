@@ -10,11 +10,12 @@
 	org $F000
        
 FrameCount = $80
-Count = $81
-Div3 = $82
-Div5 = $83
-Temp = $84
+Div3 = $81
+Div5 = $82
+Temp = $83
+HundredsDigit = $84
 TensDigit = $85
+OnesDigit = $86
 
 Start
 	CLEAN_START
@@ -111,7 +112,7 @@ CheckSwitches
 	LDA #0
 	STA COLUBK  ; Background will be black.
 	lda #$0f
-	sta COLUPF
+	sta COLUP0
 	RTS
 ;
 ; Minimal game calculations, just to get the ball rolling.
@@ -121,14 +122,12 @@ GameCalc
 	ADC #4
 	STA FrameCount
 	;; every 64 frames, count
-	
-	beq GCCount
-
+	beq IncCount
 	rts
 
-GCCount
-	inc Count
-
+IncCount
+	jsr BumpCounts
+	
 	inc Div3
 	lda #3
 	cmp Div3
@@ -157,8 +156,37 @@ Not5
 	jsr Silent
 GCDone
 	rts
-
+	
 	;; all of those rts themselves
+
+BumpCounts SUBROUTINE
+	lda OnesDigit
+	cmp #9
+	beq .inctens
+	inc OnesDigit
+	rts
+
+.inctens
+	lda #0
+	sta OnesDigit
+	lda TensDigit
+	cmp #9
+	beq .inchundreds
+	inc TensDigit
+	rts
+.inchundreds
+	lda #0
+	sta TensDigit
+	lda HundredsDigit
+	cmp #1
+	beq .zerodigits
+	inc HundredsDigit
+	rts
+
+.zerodigits
+	lda #0
+	sta HundredsDigit
+	rts
 ;
 ; This is the scariest thing I've done all month.
 ;
@@ -169,7 +197,7 @@ DrawScreen
 	STA VBLANK  ;End the VBLANK period with a zero.
 
 ; playfield	
-	LDA  #0
+	LDA  #2 		; SCORE mode, seperate colors for each side
 	STA  CTRLPF
 
 ; I'm going to use the Y register to count scanlines this time.
@@ -268,22 +296,8 @@ ScanLoop
 	sbc Temp
 	sta Temp
 	
-	;; Count -> tens, ones
-	lda Count
-	ldx #0
-TensCount
-	clc
-	cmp #10
-	bmi TensDone
-	clc
-	sbc #10
-	inx
-	jmp TensCount
-TensDone
-	;; x is tens, a is ones
-	
-	stx TensDigit
-	
+
+	lda OnesDigit
 	;;  display ones
 	and #$f
 	asl
@@ -310,12 +324,33 @@ TensDone
 	lda Digits1,X
 	sta PF1
 
+	;; display hundreds
+	lda HundredsDigit
+	cmp #0
+	beq .zerohundred
+	;; get the '1'
+	asl
+	asl
+	asl
+	adc Temp
+	tax
+	lda Digits2,X
+	asl
+	asl
+	sta PF0
+	dey
+	BNE ScanLoop
+	
+.zerohundred
+	lda #0
+	sta PF0
 	
 	DEY
 	BNE ScanLoop
 
 NoPrint
 	lda #0
+	sta PF0
 	sta PF1
 	sta PF2
 
@@ -361,7 +396,9 @@ KillLines
 GameInit
 	LDA #0
 	STA FrameCount
-	STA Count
+	STA OnesDigit
+	STA TensDigit
+	STA HundredsDigit
 	RTS
 
 
